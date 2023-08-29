@@ -23,7 +23,7 @@ _tx()
     cur="${COMP_WORDS[COMP_CWORD]}"
     prev="${COMP_WORDS[COMP_CWORD-1]}"
 
-    opts="--version -h --help -v --verbose -t --types --force -f --compress -c"
+    opts="--version -h --help -v --verbose -t --types --force -f --compress -c --list -l"
 
     case "${cur}" in
         -*)

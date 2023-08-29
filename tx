@@ -18,7 +18,7 @@ import re
 from optparse import OptionParser, SUPPRESS_HELP
 from subprocess import DEVNULL
 
-VERSION = "1.2.0"
+VERSION = "1.3.0"
 
 DEFAULT_COMPRESS_TYPE   = "tar.gz"
 
@@ -27,12 +27,13 @@ FileList                = 2
 Archive                 = 3
 
 class Handler:
-	def __init__(self, name, binaries, desc, compress, uncompress, verbose, quiet, ext):
+	def __init__(self, name, binaries, desc, compress, uncompress, list_contents, verbose, quiet, ext):
 		self.name = name
 		self.binaries = binaries
 		self.desc = desc
 		self.compress = compress
 		self.uncompress = uncompress
+		self.list_contents = list_contents
 		self.verbose = verbose
 		self.quiet = quiet
 		self.ext = []
@@ -45,6 +46,7 @@ ftypes = [
 	        'Tar archive.',
 	        [ 'tar', Verbose, '-c -f', Archive, FileList ],
 	        [ 'tar', Verbose, '-x -f', Archive ],
+	        [ 'tar -v --list -f', Archive ],
 	        '-v',
 	        '',
 	        [r'\.tar$']),
@@ -54,6 +56,7 @@ ftypes = [
 	        'Tar archive compressed with gzip.',
 	        [ 'tar', Verbose, '-c -z -f', Archive, FileList ],
 	        [ 'tar', Verbose, '-x -z -f', Archive ],
+	        [ 'tar -v -z --list -f', Archive ],
 	        '-v',
 	        '',
 	        [r'\.tar\.gz$', '\.tgz$']),
@@ -63,6 +66,7 @@ ftypes = [
 	        'Tar archive compressed with bzip2.',
 	        [ 'tar', Verbose, '-c -j -f', Archive, FileList ],
 	        [ 'tar', Verbose, '-x -j -f', Archive ],
+	        [ 'tar -v -j --list -f', Archive ],
 	        '-v',
 	        '',
 	        [r'\.tar\.bz2$', r'\.tbz2$']),
@@ -72,6 +76,7 @@ ftypes = [
 	        'Tar archive compressed with xz.',
 	        [ 'tar', Verbose, '-c -J -f', Archive, FileList ],
 	        [ 'xz -d -c', Archive, '| tar -x', Verbose ],
+	        [ 'xz -d -c', Archive, '| tar -v --list' ],
 	        '-v',
 	        '',
 	        [r'\.tar\.xz$', r'\.txz$']),
@@ -81,6 +86,7 @@ ftypes = [
 	        'Tar archive compressed with lzip.',
 	        None,
 	        [ 'tar', Verbose, '-x --lzip -f', Archive ],
+	        [ 'tar -v -x --lzip --list -f', Archive ],
 	        '-v',
 	        '',
 	        [r'\.tar\.lz$']),
@@ -90,6 +96,7 @@ ftypes = [
 	        'Tar archive compressed with lz4.',
 	        [ 'tar', Verbose, '-c', FileList, '| lz4 -f -z -', Archive ],
 	        [ 'lz4 -d', Archive, '-c | tar -x', Verbose ],
+	        [ 'lz4 -d', Archive, '-c | tar -v --list' ],
 	        '-v',
 	        '',
 	        [r'\.tar\.lz4$']),
@@ -99,6 +106,7 @@ ftypes = [
 	        'File compressed with gzip.',
 	        [ 'gzip', Verbose, '-c >', Archive, '<', FileList ],
 	        [ 'gzip', Verbose, '-d -k', Archive ],
+	        None,
 	        '-v',
 	        '',
 	        [r'\.gz$']),
@@ -108,6 +116,7 @@ ftypes = [
 	        'File compressed with bzip2.',
 	        [ 'bzip2', Verbose, '-c >', Archive, '<', FileList ],
 	        [ 'bzip2', Verbose, '-d -k', Archive ],
+	        None,
 	        '-v',
 	        '',
 	        [r'\.bz2$']),
@@ -117,6 +126,7 @@ ftypes = [
 	        'Xz archive.',
 	        [ 'xz', Verbose, '-c >', Archive, '<', FileList ],
 	        [ 'xz', Verbose, '-d -k', Archive ],
+	        None,
 	        '-v',
 	        '',
 	        [r'\.xz$']),
@@ -126,6 +136,7 @@ ftypes = [
 	        'LZ4 archive',
 	        [ 'lz4', Verbose, '-c >', Archive, '<', FileList ],
 	        [ 'lz4', Verbose, '-k -d', Archive ],
+	        None,
 	        '',
 	        '-q',
 	        [r'\.lz4$']),
@@ -135,6 +146,7 @@ ftypes = [
 	        'Zip archive.',
 	        [ 'zip', Verbose, '-r', Archive, FileList ],
 	        [ 'unzip', Verbose, Archive ],
+	        [ 'unzip -v -l', Archive ],
 	        '',
 	        '-q',
 	        [r'\.zip$']),
@@ -146,6 +158,7 @@ ftypes = [
 	        [ 'unrar x', Archive ],
 	        None,
 	        None,
+	        None,
 	        [r'\.rar$']),
 
 	Handler('ace',
@@ -153,6 +166,7 @@ ftypes = [
 	        'Ace archive.',
 	        None,
 	        [ 'unace x', Archive ],
+	        None,
 	        None,
 	        None,
 	        [r'\.ace$']),
@@ -164,6 +178,7 @@ ftypes = [
 	        [ 'arj x -i', Archive ],
 	        None,
 	        None,
+	        None,
 	        [r'\.arj$']),
 
 	Handler('deb',
@@ -171,6 +186,7 @@ ftypes = [
 	        'Debian package.',
 	        None,
 	        [ 'dpkg-deb -x', Archive, '.' ],
+	        None,
 	        None,
 	        None,
 	        [r'\.deb$']),
@@ -182,6 +198,7 @@ ftypes = [
 	        [ 'dpkg-source -x', Archive ],
 	        None,
 	        None,
+	        None,
 	        [r'\.dsc$']),
 
 	Handler('rpm',
@@ -189,6 +206,7 @@ ftypes = [
 	        'Rpm package.',
 	        None,
 	        [ 'rpm2cpio', Archive, "| cpio -idm", Verbose ],
+	        [ 'rpm2cpio', Archive, "| cpio -idm --verbose --list" ],
 	        '',
 	        '--quiet',
 	        [r'\.rpm$']),
@@ -200,6 +218,7 @@ ftypes = [
 	        [ '7z x', Archive ],
 	        None,
 	        None,
+	        None,
 	        [r'\.7z$']),
 
 	Handler('exe',
@@ -209,6 +228,7 @@ ftypes = [
 	        [ 'innoextract -s', Archive ],
 	        None,
 	        None,
+	        None,
 	        [r'\.exe$']),
 
 	Handler('rcore',
@@ -216,6 +236,7 @@ ftypes = [
 	        'Rich core.',
 	        None,
 	        [ 'rich-core-extract', Archive ],
+	        [ 'lzop -v -l', Archive ],
 	        None,
 	        None,
 	        [r'\.rcore$', r'\.rcore\.lzo$', r'\.rcore\.gz$']),
@@ -225,6 +246,7 @@ ftypes = [
 	        'Lempel-Ziv-Oberhumer packer.',
 	        None,
 	        [ 'lzop -d', Archive ],
+	        [ 'lzop -v -l', Archive ],
 	        None,
 	        None,
 	        [r'\.lzo$']),
@@ -234,6 +256,7 @@ ftypes = [
 	        'Android application package.',
 	        None,
 	        [ 'apktool decode', Archive ],
+	        None,
 	        None,
 	        None,
 	        [r'\.apk$']),
@@ -362,6 +385,17 @@ def compress(archive, filenames, verbose):
 		err = os.system(cmd)
 	return err
 
+def list_contents(filename):
+	err = 1
+	handler = find_handler(filename)
+	if handler and not handler.list_contents:
+		print("Listing contents is not supported with %s." % handler.name)
+		return err
+	if handler:
+		cmd = build_cmd(handler, handler.list_contents, False, filename)
+		err = os.system(cmd)
+	return err
+
 def print_extensions():
 	for handler in ftypes:
 		missing = []
@@ -418,6 +452,11 @@ program.
 		help="""compress files to archive, if only target is specified and a file or
 directory by that name exists an archive is created consisting solely
 of this file or directory""")
+	parser.add_option('-l', '--list',
+		action='store_true',
+		dest='list_contents',
+		default=False,
+		help="""List files in archive.""")
 	parser.add_option('-C', '--change-dir',
 		action='store',
 		type='string',
@@ -454,10 +493,16 @@ of this file or directory""")
 
 	ret = 0
 	if opts.archive:
+		if opts.list_contents:
+			print("--list cannot be used with --compress")
+			sys.exit(1)
 		ret = compress(opts.archive, args, verbose=opts.verbose)
 	else:
 		for i in args:
-			ret = extract(opts.change_dir, i, force_type=force, verbose=opts.verbose)
+			if opts.list_contents:
+				ret = list_contents(i)
+			else:
+				ret = extract(opts.change_dir, i, force_type=force, verbose=opts.verbose)
 			if ret != 0:
 				sys.exit(ret)
 
