@@ -18,7 +18,7 @@ import re
 from optparse import OptionParser, SUPPRESS_HELP
 from subprocess import DEVNULL
 
-VERSION = "1.3.0"
+VERSION = "1.4.0"
 
 DEFAULT_COMPRESS_TYPE   = "tar.gz"
 
@@ -263,7 +263,7 @@ ftypes = [
 ]
 
 def vprint(v, s):
-	if v: print(s)
+	if v: print(">> %s" % s)
 
 def iteritems(d):
 	try:
@@ -287,7 +287,7 @@ def files_exist(file_list, compress):
 def check_binary(exe):
 	return subprocess.call(["which", exe], stdout=DEVNULL, stderr=subprocess.STDOUT) == 0
 
-def check_binaries(handler):
+def check_binaries(handler, print_error=True):
 	ret = True
 	for b in handler.binaries:
 		if not check_binary(b):
@@ -295,8 +295,9 @@ def check_binaries(handler):
 			ret = False
 	return ret
 
-def find_handler(filename, force_type=None):
+def find_handler(filename, force_type=None, print_error=True):
 	handler = None
+	ext = None
 	if force_type:
 		filetype = force_type
 	else:
@@ -307,15 +308,20 @@ def find_handler(filename, force_type=None):
 			# able to match other than starting from beginning of string..
 			if len(r.split(filetype, maxsplit=1)) == 2:
 				handler = h
+				ext = r
 				break
 		if handler:
 			break
 	if not handler:
-		print("No handler for '%s'" % filename)
+		if print_error:
+			fname = filename
+			if force_type:
+				fname = "%s%s" % (filename, force_type)
+			print("No handler for '%s'" % fname)
 	else:
-		if not check_binaries(handler):
+		if not check_binaries(handler, print_error):
 			handler = None
-	return handler
+	return (handler, ext)
 
 def find_verbose_switch(handler, verbose):
 	verbose_switch = None
@@ -344,7 +350,7 @@ def build_cmd(handler, args, verbose, archive, file_list = None):
 	return ' '.join(cmd)
 
 def extract(cwd, filename, force_type, verbose):
-	handler = find_handler(filename, force_type)
+	handler, _ = find_handler(filename, force_type)
 	err = 1
 	if cwd:
 		err = os.system("[ -d '%s' ]" % cwd)
@@ -362,18 +368,40 @@ def extract(cwd, filename, force_type, verbose):
 		err = os.system(cmd)
 	return err
 
-def compress(archive, filenames, verbose):
+def compress(archive, filenames, force_type, verbose):
 	err = 1
 
+	handler = None
+	# If no filenames are passed try to autodetect the directory
+	# or file to compress and what the file format should be.
 	if len(filenames) == 0:
+		compress_type = DEFAULT_COMPRESS_TYPE
+		# If user passes for example -c my_dir.tar.lz4 first try to
+		# find handler for .tar.lz4, and if handler is found, see if
+		# there exists file or directory with name my_dir
+		if not force_type:
+			handler, ext = find_handler(archive, print_error=False)
+			if handler:
+				basename = re.sub(ext, '', archive)
+				if os.path.exists(basename):
+					archive = basename
+					compress_type = handler.name
 		if os.path.exists(archive):
 			filenames = [ os.path.normpath(archive) ]
-			archive = str.format("{}.{}", os.path.normpath(archive), DEFAULT_COMPRESS_TYPE)
+			if not handler and force_type:
+				handler, _ = find_handler(archive, force_type)
+				if not handler:
+					return err
+				compress_type = handler.name
+			archive = str.format("{}.{}", os.path.normpath(archive), compress_type)
+			if verbose:
+				print("Compressing to %s as archive type %s..." % (archive, compress_type))
 		else:
 			print("No files listed for archive.")
 			return err
 
-	handler = find_handler(archive)
+	if not handler:
+		handler, _ = find_handler(archive, force_type)
 	if handler and not handler.compress:
 		print("Compression not supported with %s." % handler.name)
 		return err
@@ -387,7 +415,7 @@ def compress(archive, filenames, verbose):
 
 def list_contents(filename):
 	err = 1
-	handler = find_handler(filename)
+	handler, _ = find_handler(filename)
 	if handler and not handler.list_contents:
 		print("Listing contents is not supported with %s." % handler.name)
 		return err
@@ -496,7 +524,7 @@ of this file or directory""")
 		if opts.list_contents:
 			print("--list cannot be used with --compress")
 			sys.exit(1)
-		ret = compress(opts.archive, args, verbose=opts.verbose)
+		ret = compress(opts.archive, args, force_type=force, verbose=opts.verbose)
 	else:
 		for i in args:
 			if opts.list_contents:
