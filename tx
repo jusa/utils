@@ -18,9 +18,13 @@ import re
 from optparse import OptionParser, SUPPRESS_HELP
 from subprocess import DEVNULL
 
-VERSION = "1.1.0"
+VERSION = "1.2.0"
 
-DEFAULT_COMPRESS_TYPE = "tar.gz"
+DEFAULT_COMPRESS_TYPE   = "tar.gz"
+
+Verbose                 = 1
+FileList                = 2
+Archive                 = 3
 
 class Handler:
 	def __init__(self, name, binaries, desc, compress, uncompress, verbose, quiet, ext):
@@ -39,8 +43,8 @@ ftypes = [
 	Handler('tar',
 	        ['tar'],
 	        'Tar archive.',
-	        'tar %s -c -f "%s" %s',
-	        'tar %s -x -f "%s"',
+	        [ 'tar', Verbose, '-c -f', Archive, FileList ],
+	        [ 'tar', Verbose, '-x -f', Archive ],
 	        '-v',
 	        '',
 	        [r'\.tar$']),
@@ -48,8 +52,8 @@ ftypes = [
 	Handler('tar.gz',
 	        ['tar', 'gzip'],
 	        'Tar archive compressed with gzip.',
-	        'tar %s -c -z -f "%s" %s',
-	        'tar %s -x -z -f "%s"',
+	        [ 'tar', Verbose, '-c -z -f', Archive, FileList ],
+	        [ 'tar', Verbose, '-x -z -f', Archive ],
 	        '-v',
 	        '',
 	        [r'\.tar\.gz$', '\.tgz$']),
@@ -57,8 +61,8 @@ ftypes = [
 	Handler('tar.bz2',
 	        ['tar', 'bzip2'],
 	        'Tar archive compressed with bzip2.',
-	        'tar %s -c -j -f "%s" %s',
-	        'tar %s -x -j -f "%s"',
+	        [ 'tar', Verbose, '-c -j -f', Archive, FileList ],
+	        [ 'tar', Verbose, '-x -j -f', Archive ],
 	        '-v',
 	        '',
 	        [r'\.tar\.bz2$', r'\.tbz2$']),
@@ -66,71 +70,71 @@ ftypes = [
 	Handler('tar.xz',
 	        ['tar', 'xz'],
 	        'Tar archive compressed with xz.',
-	        'tar cJf "%s" %s',
-	        'xz -d -c "%s" | tar -x',
-	        None,
-	        None,
+	        [ 'tar', Verbose, '-c -J -f', Archive, FileList ],
+	        [ 'xz -d -c', Archive, '| tar -x', Verbose ],
+	        '-v',
+	        '',
 	        [r'\.tar\.xz$', r'\.txz$']),
 
 	Handler('tar.lz',
 	        ['tar', 'lunzip'],
 	        'Tar archive compressed with lzip.',
 	        None,
-	        'tar -x --lzip -f "%s"',
-	        None,
-	        None,
+	        [ 'tar', Verbose, '-x --lzip -f', Archive ],
+	        '-v',
+	        '',
 	        [r'\.tar\.lz$']),
 
 	Handler('tar.lz4',
 	        ['tar', 'lz4'],
 	        'Tar archive compressed with lz4.',
-	        None,
-	        'lz4 -d "%s" -c | tar -x',
-	        None,
-	        None,
+	        [ 'tar', Verbose, '-c', FileList, '| lz4 -f -z -', Archive ],
+	        [ 'lz4 -d', Archive, '-c | tar -x', Verbose ],
+	        '-v',
+	        '',
 	        [r'\.tar\.lz4$']),
 
 	Handler('gz',
 	        ['gzip'],
 	        'File compressed with gzip.',
-	        'gzip -c > "%s" < %s',
-	        'gzip -d -k "%s"',
-	        None,
-	        None,
+	        [ 'gzip', Verbose, '-c >', Archive, '<', FileList ],
+	        [ 'gzip', Verbose, '-d -k', Archive ],
+	        '-v',
+	        '',
 	        [r'\.gz$']),
 
 	Handler('bz2',
 	        ['bzip2'],
 	        'File compressed with bzip2.',
-	        'bzip2 -c > "%s" < %s',
-	        'bzip2 -d -k "%s"',
-	        None,
-	        None,
+	        [ 'bzip2', Verbose, '-c >', Archive, '<', FileList ],
+	        [ 'bzip2', Verbose, '-d -k', Archive ],
+	        '-v',
+	        '',
 	        [r'\.bz2$']),
 
 	Handler('xz',
 	        ['xz'],
 	        'Xz archive.',
-	        'xz -c > "%s" < %s',
-	        'xz -d -k "%s"',
-	        None,
-	        None,
+	        [ 'xz', Verbose, '-c >', Archive, '<', FileList ],
+	        [ 'xz', Verbose, '-d -k', Archive ],
+	        '-v',
+	        '',
 	        [r'\.xz$']),
 
 	Handler('lz4',
 	        ['lz4'],
 	        'LZ4 archive',
-	        'lz4 -c > "%s" < %s',
-	        'lz4 -k -d "%s"',
-	        None,
-	        None,
+	        [ 'lz4', Verbose, '-c >', Archive, '<', FileList ],
+	        [ 'lz4', Verbose, '-k -d', Archive ],
+	        '',
+	        '-q',
 	        [r'\.lz4$']),
 
 	Handler('zip',
 	        ['unzip'],
 	        'Zip archive.',
-	        'zip %s -r "%s" %s',
-	        'unzip %s "%s"',
+	        [ 'zip', Verbose, '-r', Archive, FileList ],
+	        [ 'unzip', Verbose, Archive ],
 	        '',
 	        '-q',
 	        [r'\.zip$']),
@@ -139,7 +143,7 @@ ftypes = [
 	        ['unrar'],
 	        'Rar archive.',
 	        None,
-	        'unrar x "%s"',
+	        [ 'unrar x', Archive ],
 	        None,
 	        None,
 	        [r'\.rar$']),
@@ -148,7 +152,7 @@ ftypes = [
 	        ['unace'],
 	        'Ace archive.',
 	        None,
-	        'unace x "%s"',
+	        [ 'unace x', Archive ],
 	        None,
 	        None,
 	        [r'\.ace$']),
@@ -156,8 +160,8 @@ ftypes = [
 	Handler('arj',
 	        ['arj'],
 	        'Arj archive.',
-	        'arj a "%s" %s',
-	        'arj x -i "%s"',
+	        [ 'arj a', Archive, FileList ],
+	        [ 'arj x -i', Archive ],
 	        None,
 	        None,
 	        [r'\.arj$']),
@@ -166,7 +170,7 @@ ftypes = [
 	        ['dpkg-deb'],
 	        'Debian package.',
 	        None,
-	        'dpkg-deb -x %s .',
+	        [ 'dpkg-deb -x', Archive, '.' ],
 	        None,
 	        None,
 	        [r'\.deb$']),
@@ -175,7 +179,7 @@ ftypes = [
 	        ['dpkg-source'],
 	        'Debian source package.',
 	        None,
-	        'dpkg-source -x "%s"',
+	        [ 'dpkg-source -x', Archive ],
 	        None,
 	        None,
 	        [r'\.dsc$']),
@@ -184,16 +188,16 @@ ftypes = [
 	        ['rpm2cpio', 'cpio'],
 	        'Rpm package.',
 	        None,
-	        'rpm2cpio %s | cpio -idm --quiet',
-	        None,
-	        None,
+	        [ 'rpm2cpio', Archive, "| cpio -idm", Verbose ],
+	        '',
+	        '--quiet',
 	        [r'\.rpm$']),
 
 	Handler('7z',
 	        ['7z'],
 	        '7zip package.',
-	        '7z a "%s" %s',
-	        '7z x "%s"',
+	        [ '7z a', Archive, FileList ],
+	        [ '7z x', Archive ],
 	        None,
 	        None,
 	        [r'\.7z$']),
@@ -202,7 +206,7 @@ ftypes = [
 	        ['innoextract'],
 	        'Inno Setup package (.exe).',
 	        None,
-	        'innoextract -s "%s"',
+	        [ 'innoextract -s', Archive ],
 	        None,
 	        None,
 	        [r'\.exe$']),
@@ -211,7 +215,7 @@ ftypes = [
 	        ['rich-core-extract'],
 	        'Rich core.',
 	        None,
-	        'rich-core-extract "%s"',
+	        [ 'rich-core-extract', Archive ],
 	        None,
 	        None,
 	        [r'\.rcore$', r'\.rcore\.lzo$', r'\.rcore\.gz$']),
@@ -220,7 +224,7 @@ ftypes = [
 	        ['lzop'],
 	        'Lempel-Ziv-Oberhumer packer.',
 	        None,
-	        'lzop -d "%s"',
+	        [ 'lzop -d', Archive ],
 	        None,
 	        None,
 	        [r'\.lzo$']),
@@ -229,7 +233,7 @@ ftypes = [
 	        ['apktool'],
 	        'Android application package.',
 	        None,
-	        'apktool decode "%s"',
+	        [ 'apktool decode', Archive ],
 	        None,
 	        None,
 	        [r'\.apk$']),
@@ -300,6 +304,22 @@ def find_verbose_switch(handler, verbose):
 		verbose_switch = handler.quiet
 	return verbose_switch
 
+def build_cmd(handler, args, verbose, archive, file_list = None):
+	cmd = []
+	for arg in args:
+		if isinstance(arg, int):
+			if arg == Verbose:
+				verbose_switch = find_verbose_switch(handler, verbose)
+				if verbose_switch:
+					cmd.append(verbose_switch)
+			elif arg == FileList:
+				cmd.append(file_list)
+			elif arg == Archive:
+				cmd.append('"%s"' % archive)
+		else:
+			cmd.append(arg)
+	return ' '.join(cmd)
+
 def extract(cwd, filename, force_type, verbose):
 	handler = find_handler(filename, force_type)
 	err = 1
@@ -310,13 +330,9 @@ def extract(cwd, filename, force_type, verbose):
 			return err
 	err = 1
 	if handler:
-		verbose_switch = find_verbose_switch(handler, verbose)
 		if not os.path.isabs(filename):
 			filename = "/".join([os.getcwd(), filename])
-		if verbose_switch is not None:
-			cmd = handler.uncompress % (verbose_switch, filename)
-		else:
-			cmd = handler.uncompress % filename
+		cmd = build_cmd(handler, handler.uncompress, verbose, filename)
 		if cwd:
 			cmd = "cd '%s' && %s" % (cwd, cmd)
 		vprint(verbose, cmd)
@@ -341,11 +357,7 @@ def compress(archive, filenames, verbose):
 	if handler:
 		escaped = list(map(lambda s: str.format("\"{}\"", os.path.normpath(s)), filenames))
 		file_list = " ".join(escaped)
-		verbose_switch = find_verbose_switch(handler, verbose)
-		if verbose_switch is not None:
-			cmd = handler.compress % (verbose_switch, archive, file_list)
-		else:
-			cmd = handler.compress % (archive, file_list)
+		cmd = build_cmd(handler, handler.compress, verbose, archive, file_list)
 		vprint(verbose, cmd)
 		err = os.system(cmd)
 	return err
