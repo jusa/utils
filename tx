@@ -18,7 +18,7 @@ import re
 from optparse import OptionParser, SUPPRESS_HELP
 from subprocess import DEVNULL
 
-VERSION = "1.4.0"
+VERSION = "1.4.1"
 
 DEFAULT_COMPRESS_TYPE   = "tar.gz"
 
@@ -36,231 +36,244 @@ class Handler:
 		self.list_contents = list_contents
 		self.verbose = verbose
 		self.quiet = quiet
+		self.ext_r = ext
 		self.ext = []
-		for e in ext:
-			self.ext.append(re.compile(e))
 
-ftypes = [
-	Handler('tar',
-	        ['tar'],
-	        'Tar archive.',
-	        [ 'tar', Verbose, '-c -f', Archive, FileList ],
-	        [ 'tar', Verbose, '-x -f', Archive ],
-	        [ 'tar -v --list -f', Archive ],
-	        '-v',
-	        '',
-	        [r'\.tar$']),
+	def compile(self):
+		if len(self.ext) == 0:
+			for e in self.ext_r:
+				self.ext.append(re.compile(e))
 
-	Handler('tar.gz',
-	        ['tar', 'gzip'],
-	        'Tar archive compressed with gzip.',
-	        [ 'tar', Verbose, '-c -z -f', Archive, FileList ],
-	        [ 'tar', Verbose, '-x -z -f', Archive ],
-	        [ 'tar -v -z --list -f', Archive ],
-	        '-v',
-	        '',
-	        [r'\.tar\.gz$', '\.tgz$']),
+ftypes_list = None
 
-	Handler('tar.bz2',
-	        ['tar', 'bzip2'],
-	        'Tar archive compressed with bzip2.',
-	        [ 'tar', Verbose, '-c -j -f', Archive, FileList ],
-	        [ 'tar', Verbose, '-x -j -f', Archive ],
-	        [ 'tar -v -j --list -f', Archive ],
-	        '-v',
-	        '',
-	        [r'\.tar\.bz2$', r'\.tbz2$']),
+def ftypes():
+	global ftypes_list
+	if ftypes_list:
+		return ftypes_list
 
-	Handler('tar.xz',
-	        ['tar', 'xz'],
-	        'Tar archive compressed with xz.',
-	        [ 'tar', Verbose, '-c -J -f', Archive, FileList ],
-	        [ 'xz -d -c', Archive, '| tar -x', Verbose ],
-	        [ 'xz -d -c', Archive, '| tar -v --list' ],
-	        '-v',
-	        '',
-	        [r'\.tar\.xz$', r'\.txz$']),
+	ftypes_list = [
+		Handler('tar',
+		        ['tar'],
+		        'Tar archive.',
+		        [ 'tar', Verbose, '-c -f', Archive, FileList ],
+		        [ 'tar', Verbose, '-x -f', Archive ],
+		        [ 'tar -v --list -f', Archive ],
+		        '-v',
+		        '',
+		        [r'\.tar$']),
+	
+		Handler('tar.gz',
+		        ['tar', 'gzip'],
+		        'Tar archive compressed with gzip.',
+		        [ 'tar', Verbose, '-c -z -f', Archive, FileList ],
+		        [ 'tar', Verbose, '-x -z -f', Archive ],
+		        [ 'tar -v -z --list -f', Archive ],
+		        '-v',
+		        '',
+		        [r'\.tar\.gz$', '\.tgz$']),
+	
+		Handler('tar.bz2',
+		        ['tar', 'bzip2'],
+		        'Tar archive compressed with bzip2.',
+		        [ 'tar', Verbose, '-c -j -f', Archive, FileList ],
+		        [ 'tar', Verbose, '-x -j -f', Archive ],
+		        [ 'tar -v -j --list -f', Archive ],
+		        '-v',
+		        '',
+		        [r'\.tar\.bz2$', r'\.tbz2$']),
+	
+		Handler('tar.xz',
+		        ['tar', 'xz'],
+		        'Tar archive compressed with xz.',
+		        [ 'tar', Verbose, '-c -J -f', Archive, FileList ],
+		        [ 'xz -d -c', Archive, '| tar -x', Verbose ],
+		        [ 'xz -d -c', Archive, '| tar -v --list' ],
+		        '-v',
+		        '',
+		        [r'\.tar\.xz$', r'\.txz$']),
+	
+		Handler('tar.lz',
+		        ['tar', 'lunzip'],
+		        'Tar archive compressed with lzip.',
+		        None,
+		        [ 'tar', Verbose, '-x --lzip -f', Archive ],
+		        [ 'tar -v -x --lzip --list -f', Archive ],
+		        '-v',
+		        '',
+		        [r'\.tar\.lz$']),
+	
+		Handler('tar.lz4',
+		        ['tar', 'lz4'],
+		        'Tar archive compressed with lz4.',
+		        [ 'tar', Verbose, '-c', FileList, '| lz4 -f -z -', Archive ],
+		        [ 'lz4 -d', Archive, '-c | tar -x', Verbose ],
+		        [ 'lz4 -d', Archive, '-c | tar -v --list' ],
+		        '-v',
+		        '',
+		        [r'\.tar\.lz4$']),
+	
+		Handler('gz',
+		        ['gzip'],
+		        'File compressed with gzip.',
+		        [ 'gzip', Verbose, '-c >', Archive, '<', FileList ],
+		        [ 'gzip', Verbose, '-d -k', Archive ],
+		        None,
+		        '-v',
+		        '',
+		        [r'\.gz$']),
+	
+		Handler('bz2',
+		        ['bzip2'],
+		        'File compressed with bzip2.',
+		        [ 'bzip2', Verbose, '-c >', Archive, '<', FileList ],
+		        [ 'bzip2', Verbose, '-d -k', Archive ],
+		        None,
+		        '-v',
+		        '',
+		        [r'\.bz2$']),
+	
+		Handler('xz',
+		        ['xz'],
+		        'Xz archive.',
+		        [ 'xz', Verbose, '-c >', Archive, '<', FileList ],
+		        [ 'xz', Verbose, '-d -k', Archive ],
+		        None,
+		        '-v',
+		        '',
+		        [r'\.xz$']),
+	
+		Handler('lz4',
+		        ['lz4'],
+		        'LZ4 archive',
+		        [ 'lz4', Verbose, '-c >', Archive, '<', FileList ],
+		        [ 'lz4', Verbose, '-k -d', Archive ],
+		        None,
+		        '',
+		        '-q',
+		        [r'\.lz4$']),
+	
+		Handler('zip',
+		        ['unzip'],
+		        'Zip archive.',
+		        [ 'zip', Verbose, '-r', Archive, FileList ],
+		        [ 'unzip', Verbose, Archive ],
+		        [ 'unzip -v -l', Archive ],
+		        '',
+		        '-q',
+		        [r'\.zip$']),
+	
+		Handler('rar',
+		        ['unrar'],
+		        'Rar archive.',
+		        None,
+		        [ 'unrar x', Archive ],
+		        None,
+		        None,
+		        None,
+		        [r'\.rar$']),
+	
+		Handler('ace',
+		        ['unace'],
+		        'Ace archive.',
+		        None,
+		        [ 'unace x', Archive ],
+		        None,
+		        None,
+		        None,
+		        [r'\.ace$']),
+	
+		Handler('arj',
+		        ['arj'],
+		        'Arj archive.',
+		        [ 'arj a', Archive, FileList ],
+		        [ 'arj x -i', Archive ],
+		        None,
+		        None,
+		        None,
+		        [r'\.arj$']),
+	
+		Handler('deb',
+		        ['dpkg-deb'],
+		        'Debian package.',
+		        None,
+		        [ 'dpkg-deb -x', Archive, '.' ],
+		        None,
+		        None,
+		        None,
+		        [r'\.deb$']),
+	
+		Handler('dsc',
+		        ['dpkg-source'],
+		        'Debian source package.',
+		        None,
+		        [ 'dpkg-source -x', Archive ],
+		        None,
+		        None,
+		        None,
+		        [r'\.dsc$']),
+	
+		Handler('rpm',
+		        ['rpm2cpio', 'cpio'],
+		        'Rpm package.',
+		        None,
+		        [ 'rpm2cpio', Archive, "| cpio -idm", Verbose ],
+		        [ 'rpm2cpio', Archive, "| cpio -idm --verbose --list" ],
+		        '',
+		        '--quiet',
+		        [r'\.rpm$']),
+	
+		Handler('7z',
+		        ['7z'],
+		        '7zip package.',
+		        [ '7z a', Archive, FileList ],
+		        [ '7z x', Archive ],
+		        None,
+		        None,
+		        None,
+		        [r'\.7z$']),
+	
+		Handler('exe',
+		        ['innoextract'],
+		        'Inno Setup package (.exe).',
+		        None,
+		        [ 'innoextract -s', Archive ],
+		        None,
+		        None,
+		        None,
+		        [r'\.exe$']),
+	
+		Handler('rcore',
+		        ['rich-core-extract'],
+		        'Rich core.',
+		        None,
+		        [ 'rich-core-extract', Archive ],
+		        [ 'lzop -v -l', Archive ],
+		        None,
+		        None,
+		        [r'\.rcore$', r'\.rcore\.lzo$', r'\.rcore\.gz$']),
+	
+		Handler('lzo',
+		        ['lzop'],
+		        'Lempel-Ziv-Oberhumer packer.',
+		        None,
+		        [ 'lzop -d', Archive ],
+		        [ 'lzop -v -l', Archive ],
+		        None,
+		        None,
+		        [r'\.lzo$']),
+	
+		Handler('apk',
+		        ['apktool'],
+		        'Android application package.',
+		        None,
+		        [ 'apktool decode', Archive ],
+		        None,
+		        None,
+		        None,
+		        [r'\.apk$']),
+	]
 
-	Handler('tar.lz',
-	        ['tar', 'lunzip'],
-	        'Tar archive compressed with lzip.',
-	        None,
-	        [ 'tar', Verbose, '-x --lzip -f', Archive ],
-	        [ 'tar -v -x --lzip --list -f', Archive ],
-	        '-v',
-	        '',
-	        [r'\.tar\.lz$']),
-
-	Handler('tar.lz4',
-	        ['tar', 'lz4'],
-	        'Tar archive compressed with lz4.',
-	        [ 'tar', Verbose, '-c', FileList, '| lz4 -f -z -', Archive ],
-	        [ 'lz4 -d', Archive, '-c | tar -x', Verbose ],
-	        [ 'lz4 -d', Archive, '-c | tar -v --list' ],
-	        '-v',
-	        '',
-	        [r'\.tar\.lz4$']),
-
-	Handler('gz',
-	        ['gzip'],
-	        'File compressed with gzip.',
-	        [ 'gzip', Verbose, '-c >', Archive, '<', FileList ],
-	        [ 'gzip', Verbose, '-d -k', Archive ],
-	        None,
-	        '-v',
-	        '',
-	        [r'\.gz$']),
-
-	Handler('bz2',
-	        ['bzip2'],
-	        'File compressed with bzip2.',
-	        [ 'bzip2', Verbose, '-c >', Archive, '<', FileList ],
-	        [ 'bzip2', Verbose, '-d -k', Archive ],
-	        None,
-	        '-v',
-	        '',
-	        [r'\.bz2$']),
-
-	Handler('xz',
-	        ['xz'],
-	        'Xz archive.',
-	        [ 'xz', Verbose, '-c >', Archive, '<', FileList ],
-	        [ 'xz', Verbose, '-d -k', Archive ],
-	        None,
-	        '-v',
-	        '',
-	        [r'\.xz$']),
-
-	Handler('lz4',
-	        ['lz4'],
-	        'LZ4 archive',
-	        [ 'lz4', Verbose, '-c >', Archive, '<', FileList ],
-	        [ 'lz4', Verbose, '-k -d', Archive ],
-	        None,
-	        '',
-	        '-q',
-	        [r'\.lz4$']),
-
-	Handler('zip',
-	        ['unzip'],
-	        'Zip archive.',
-	        [ 'zip', Verbose, '-r', Archive, FileList ],
-	        [ 'unzip', Verbose, Archive ],
-	        [ 'unzip -v -l', Archive ],
-	        '',
-	        '-q',
-	        [r'\.zip$']),
-
-	Handler('rar',
-	        ['unrar'],
-	        'Rar archive.',
-	        None,
-	        [ 'unrar x', Archive ],
-	        None,
-	        None,
-	        None,
-	        [r'\.rar$']),
-
-	Handler('ace',
-	        ['unace'],
-	        'Ace archive.',
-	        None,
-	        [ 'unace x', Archive ],
-	        None,
-	        None,
-	        None,
-	        [r'\.ace$']),
-
-	Handler('arj',
-	        ['arj'],
-	        'Arj archive.',
-	        [ 'arj a', Archive, FileList ],
-	        [ 'arj x -i', Archive ],
-	        None,
-	        None,
-	        None,
-	        [r'\.arj$']),
-
-	Handler('deb',
-	        ['dpkg-deb'],
-	        'Debian package.',
-	        None,
-	        [ 'dpkg-deb -x', Archive, '.' ],
-	        None,
-	        None,
-	        None,
-	        [r'\.deb$']),
-
-	Handler('dsc',
-	        ['dpkg-source'],
-	        'Debian source package.',
-	        None,
-	        [ 'dpkg-source -x', Archive ],
-	        None,
-	        None,
-	        None,
-	        [r'\.dsc$']),
-
-	Handler('rpm',
-	        ['rpm2cpio', 'cpio'],
-	        'Rpm package.',
-	        None,
-	        [ 'rpm2cpio', Archive, "| cpio -idm", Verbose ],
-	        [ 'rpm2cpio', Archive, "| cpio -idm --verbose --list" ],
-	        '',
-	        '--quiet',
-	        [r'\.rpm$']),
-
-	Handler('7z',
-	        ['7z'],
-	        '7zip package.',
-	        [ '7z a', Archive, FileList ],
-	        [ '7z x', Archive ],
-	        None,
-	        None,
-	        None,
-	        [r'\.7z$']),
-
-	Handler('exe',
-	        ['innoextract'],
-	        'Inno Setup package (.exe).',
-	        None,
-	        [ 'innoextract -s', Archive ],
-	        None,
-	        None,
-	        None,
-	        [r'\.exe$']),
-
-	Handler('rcore',
-	        ['rich-core-extract'],
-	        'Rich core.',
-	        None,
-	        [ 'rich-core-extract', Archive ],
-	        [ 'lzop -v -l', Archive ],
-	        None,
-	        None,
-	        [r'\.rcore$', r'\.rcore\.lzo$', r'\.rcore\.gz$']),
-
-	Handler('lzo',
-	        ['lzop'],
-	        'Lempel-Ziv-Oberhumer packer.',
-	        None,
-	        [ 'lzop -d', Archive ],
-	        [ 'lzop -v -l', Archive ],
-	        None,
-	        None,
-	        [r'\.lzo$']),
-
-	Handler('apk',
-	        ['apktool'],
-	        'Android application package.',
-	        None,
-	        [ 'apktool decode', Archive ],
-	        None,
-	        None,
-	        None,
-	        [r'\.apk$']),
-]
+	return ftypes_list
 
 def vprint(v, s):
 	if v: print(">> %s" % s)
@@ -302,7 +315,8 @@ def find_handler(filename, force_type=None, print_error=True):
 		filetype = force_type
 	else:
 		filetype = filename
-	for h in ftypes:
+	for h in ftypes():
+		h.compile()
 		for r in h.ext:
 			# nice workaround for shortcoming of re.match() not being
 			# able to match other than starting from beginning of string..
@@ -425,7 +439,7 @@ def list_contents(filename):
 	return err
 
 def print_extensions():
-	for handler in ftypes:
+	for handler in ftypes():
 		missing = []
 		for b in handler.binaries:
 			if not check_binary(b):
@@ -438,15 +452,15 @@ def print_extensions():
 
 def print_autocomplete():
 	handled = []
-	for handler in ftypes:
+	for handler in ftypes():
 		available = True
 		for b in handler.binaries:
 			if not check_binary(b):
 				available = False
 				break
 		if available:
-			for i in handler.ext:
-				handled.append(i.pattern.replace('\.', '.').replace('$', '')[1:])
+			for i in handler.ext_r:
+				handled.append(i.replace('\.', '.').replace('$', '')[1:])
 	print('|'.join(handled))
 
 def main():
