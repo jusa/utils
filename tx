@@ -7,7 +7,7 @@ tx - unpack multiple compressed file types
 
 Public domain.
 
-Juho Hämäläinen 2008-2023  jusa@hilvi.org
+Juho Hämäläinen 2008-2024 jusa@hilvi.org
 
 """
 
@@ -18,13 +18,15 @@ import re
 from optparse import OptionParser, SUPPRESS_HELP
 from subprocess import DEVNULL
 
-VERSION = "1.4.1"
+VERSION = "1.4.2"
 
 DEFAULT_COMPRESS_TYPE   = "tar.gz"
 
 Verbose                 = 1
 FileList                = 2
 Archive                 = 3
+
+verbose_print = False
 
 class Handler:
 	def __init__(self, name, binaries, desc, compress, uncompress, list_contents, verbose, quiet, ext):
@@ -276,8 +278,10 @@ def ftypes():
 
 	return ftypes_list
 
-def vprint(v, s):
-	if v: print(">> %s" % s)
+def vprint(*args):
+	if verbose_print:
+		print(">> ", end='')
+		print(*args)
 
 def eprint(*args):
 	print(*args, file=sys.stderr)
@@ -340,22 +344,22 @@ def find_handler(filename, force_type=None, print_error=True):
 			handler = None
 	return (handler, ext)
 
-def find_verbose_switch(handler, verbose):
+def find_verbose_switch(handler):
 	verbose_switch = None
 	if handler.verbose or handler.quiet:
 		verbose_switch = ""
-	if verbose and handler.verbose:
+	if verbose_print and handler.verbose:
 		verbose_switch = handler.verbose
-	elif not verbose and handler.quiet:
+	elif not verbose_print and handler.quiet:
 		verbose_switch = handler.quiet
 	return verbose_switch
 
-def build_cmd(handler, args, verbose, archive, file_list = None):
+def build_cmd(handler, args, archive, file_list = None):
 	cmd = []
 	for arg in args:
 		if isinstance(arg, int):
 			if arg == Verbose:
-				verbose_switch = find_verbose_switch(handler, verbose)
+				verbose_switch = find_verbose_switch(handler)
 				if verbose_switch:
 					cmd.append(verbose_switch)
 			elif arg == FileList:
@@ -366,7 +370,7 @@ def build_cmd(handler, args, verbose, archive, file_list = None):
 			cmd.append(arg)
 	return ' '.join(cmd)
 
-def extract(cwd, filename, force_type, verbose):
+def extract(cwd, filename, force_type):
 	handler, _ = find_handler(filename, force_type)
 	err = 1
 	if cwd:
@@ -378,14 +382,14 @@ def extract(cwd, filename, force_type, verbose):
 	if handler:
 		if not os.path.isabs(filename):
 			filename = "/".join([os.getcwd(), filename])
-		cmd = build_cmd(handler, handler.uncompress, verbose, filename)
+		cmd = build_cmd(handler, handler.uncompress, filename)
 		if cwd:
 			cmd = "cd '%s' && %s" % (cwd, cmd)
-		vprint(verbose, cmd)
+		vprint(cmd)
 		err = os.system(cmd)
 	return err
 
-def compress(archive, filenames, force_type, verbose):
+def compress(archive, filenames, force_type):
 	err = 1
 
 	handler = None
@@ -411,7 +415,7 @@ def compress(archive, filenames, force_type, verbose):
 					return err
 				compress_type = handler.name
 			archive = str.format("{}.{}", os.path.normpath(archive), compress_type)
-			if verbose:
+			if verbose_print:
 				print("Compressing to %s as archive type %s..." % (archive, compress_type))
 		else:
 			eprint("No files listed for archive.")
@@ -425,8 +429,8 @@ def compress(archive, filenames, force_type, verbose):
 	if handler:
 		escaped = list(map(lambda s: str.format("\"{}\"", os.path.normpath(s)), filenames))
 		file_list = " ".join(escaped)
-		cmd = build_cmd(handler, handler.compress, verbose, archive, file_list)
-		vprint(verbose, cmd)
+		cmd = build_cmd(handler, handler.compress, archive, file_list)
+		vprint(cmd)
 		err = os.system(cmd)
 	return err
 
@@ -536,18 +540,21 @@ of this file or directory""")
 	if opts.type:
 		force = ".%s" % opts.type
 
+	global verbose_print
+	verbose_print = opts.verbose
+
 	ret = 0
 	if opts.archive:
 		if opts.list_contents:
 			eprint("--list cannot be used with --compress")
 			sys.exit(1)
-		ret = compress(opts.archive, args, force_type=force, verbose=opts.verbose)
+		ret = compress(opts.archive, args, force_type=force)
 	else:
 		for i in args:
 			if opts.list_contents:
 				ret = list_contents(i)
 			else:
-				ret = extract(opts.change_dir, i, force_type=force, verbose=opts.verbose)
+				ret = extract(opts.change_dir, i, force_type=force)
 			if ret != 0:
 				sys.exit(ret)
 
