@@ -279,6 +279,9 @@ def ftypes():
 def vprint(v, s):
 	if v: print(">> %s" % s)
 
+def eprint(*args):
+	print(*args, file=sys.stderr)
+
 def iteritems(d):
 	try:
 		items = d.iteritems()
@@ -305,7 +308,7 @@ def check_binaries(handler, print_error=True):
 	ret = True
 	for b in handler.binaries:
 		if not check_binary(b):
-			print("Binary not in PATH '%s'" % b)
+			eprint("Binary not in PATH '%s'" % b)
 			ret = False
 	return ret
 
@@ -331,7 +334,7 @@ def find_handler(filename, force_type=None, print_error=True):
 			fname = filename
 			if force_type:
 				fname = "%s%s" % (filename, force_type)
-			print("No handler for '%s'" % fname)
+			eprint("No handler for '%s'" % fname)
 	else:
 		if not check_binaries(handler, print_error):
 			handler = None
@@ -369,7 +372,7 @@ def extract(cwd, filename, force_type, verbose):
 	if cwd:
 		err = os.system("[ -d '%s' ]" % cwd)
 		if err != 0:
-			print("No such directory or cannot enter ’%s’" % cwd)
+			eprint("No such directory or cannot enter ’%s’" % cwd)
 			return err
 	err = 1
 	if handler:
@@ -411,13 +414,13 @@ def compress(archive, filenames, force_type, verbose):
 			if verbose:
 				print("Compressing to %s as archive type %s..." % (archive, compress_type))
 		else:
-			print("No files listed for archive.")
+			eprint("No files listed for archive.")
 			return err
 
 	if not handler:
 		handler, _ = find_handler(archive, force_type)
 	if handler and not handler.compress:
-		print("Compression not supported with %s." % handler.name)
+		eprint("Compression not supported with %s." % handler.name)
 		return err
 	if handler:
 		escaped = list(map(lambda s: str.format("\"{}\"", os.path.normpath(s)), filenames))
@@ -431,7 +434,7 @@ def list_contents(filename):
 	err = 1
 	handler, _ = find_handler(filename)
 	if handler and not handler.list_contents:
-		print("Listing contents is not supported with %s." % handler.name)
+		eprint("Listing contents is not supported with %s." % handler.name)
 		return err
 	if handler:
 		cmd = build_cmd(handler, handler.list_contents, False, filename)
@@ -526,7 +529,7 @@ of this file or directory""")
 
 	missing = files_exist(args, opts.archive)
 	if missing:
-		print("file(s) not found: %s" % missing)
+		eprint("file(s) not found: %s" % missing)
 		sys.exit(200)
 
 	force = None
@@ -536,7 +539,7 @@ of this file or directory""")
 	ret = 0
 	if opts.archive:
 		if opts.list_contents:
-			print("--list cannot be used with --compress")
+			eprint("--list cannot be used with --compress")
 			sys.exit(1)
 		ret = compress(opts.archive, args, force_type=force, verbose=opts.verbose)
 	else:
