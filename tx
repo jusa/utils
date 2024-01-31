@@ -37,12 +37,13 @@ class Handler:
 		self.verbose = verbose
 		self.quiet = quiet
 		self.ext_r = ext
-		self.ext = []
+		self.ext_compiled = []
 
-	def compile(self):
-		if len(self.ext) == 0:
+	def ext(self):
+		if len(self.ext_compiled) == 0:
 			for e in self.ext_r:
-				self.ext.append(re.compile(e))
+				self.ext_compiled.append(re.compile(e))
+		return self.ext_compiled
 
 ftypes_list = None
 
@@ -316,8 +317,7 @@ def find_handler(filename, force_type=None, print_error=True):
 	else:
 		filetype = filename
 	for h in ftypes():
-		h.compile()
-		for r in h.ext:
+		for r in h.ext():
 			# nice workaround for shortcoming of re.match() not being
 			# able to match other than starting from beginning of string..
 			if len(r.split(filetype, maxsplit=1)) == 2:
