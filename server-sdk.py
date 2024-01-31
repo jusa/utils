@@ -25,6 +25,7 @@ SERVICE_PATH = "/org/sailfish/sdkrun"
 
 BUILD_LOGS_ENABLED  = True
 BUILD_LOGS_PATH     = ".build_logs"
+BUILD_ERROR_FILE    = ".sdk-build-error.log"
 
 TASK_HISTORY_LENGTH = 50
 MIN_LINES_FOR_ERROR = 20
@@ -89,18 +90,25 @@ class WorkerPrinter():
         self._lines += 1
         for regex, pr, error in self._match:
             if regex.match(line):
-                line = pr.format(line)
                 if error:
                     self._errors.append((self._lines, line))
+                line = pr.format(line)
                 break
         if ts >= 0:
             line = "[{0:4d}s] {1}".format(ts, line)
         self._print(line)
 
-    def end(self):
+    def end(self, errorfile=None):
         if len(self._errors) > 0 and self._lines > MIN_LINES_FOR_ERROR:
+            err = None
+            if errorfile:
+                err = open(errorfile, "w")
             for lineno, line in self._errors:
+                if err:
+                    err.write(line)
                 self._print(ERROR_STR.format("{:<7} {}".format(str(lineno)+":", line)))
+        if len(self._errors) == 0 and os.path.exists(errorfile):
+            Path(errorfile).unlink()
         self.reset()
 
     def done(self):
@@ -484,7 +492,7 @@ class TaskManager():
     def _print_and_remove(self, task, line, last=False):
         self._printer.println(line)
         if last:
-            self._printer.end()
+            self._printer.end(errorfile=os.path.join(task.pwd(), BUILD_ERROR_FILE))
         if not self._find_task(Task.RUNNING):
             task = self._find_task(Task.CREATED)
             if task:
@@ -505,7 +513,7 @@ class TaskManager():
 
         elif task.state() == Task.DONE:
             self._tasks_lock.acquire()
-            self._print_and_remove(task, "{0}  {1}".format(task.state_pretty_str(), LOG_SUCCESS_STR));
+            self._print_and_remove(task, "{0}  {1}".format(task.state_pretty_str(), LOG_SUCCESS_STR), last=True);
             self._tasks_lock.release()
 
         elif task.state() == Task.FAIL:
