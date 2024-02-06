@@ -33,7 +33,7 @@ LOG_STR[STATE_RUNNING]  = "\x1b[94m{0}\x1b[39m"
 LOG_STR[STATE_DONE]     = "\x1b[32m{0}\x1b[39m"
 LOG_STR[STATE_FAIL]     = "\x1b[31m{0}\x1b[39m"
 
-PAGER_GUI               = [ "gvim", "-" ]
+PAGER_GUI               = [ "xless" ]
 PAGER_CLI               = [ "less", "-N" ]
 
 def state_str(state):
