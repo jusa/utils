@@ -5,7 +5,7 @@ import dbus.service
 import dbus.mainloop.glib
 import os
 import sys
-import distutils.spawn
+import setuptools
 from subprocess import Popen, PIPE, STDOUT
 import configparser
 import io
@@ -334,7 +334,7 @@ def sb2_targets(ignore=None):
     return targets
 
 def sb2_default_target():
-    if not distutils.spawn.find_executable("dmenu"):
+    if not setuptools.distutils.spawn.find_executable("dmenu"):
         print(get_default_target())
         sys.exit(0)
 
