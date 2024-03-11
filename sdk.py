@@ -96,13 +96,17 @@ def print_tasks(monitor=False):
         # not best but shortest solution for now
         os.system("clear")
     if len(tasks) > 0:
-        col, _ = os.get_terminal_size()
+        col, screen_rows = os.get_terminal_size()
+        rows = 3 # two rows for header, one for extra lineout after tasks
         path_width = int(col / 3)
         cmd_width = col - 8 - path_width
         print("\x1b[30;107m{0:6s}\x1b[39;49m ".format("[id/s]"), end='')
         print("\x1b[30;107m{0}{1}\x1b[39;49m ".format("[path]", " " * (path_width - 6)), end='')
         print("\x1b[30;107m{0}{1}\x1b[39;49m ".format("[cmdline]", " " * (cmd_width - 9)))
-        for idno, state, run_path, cmd, ret, duration in tasks:
+        start_from = 0
+        if monitor and len(tasks) > screen_rows - rows:
+            start_from = len(tasks) - (screen_rows - rows)
+        for idno, state, run_path, cmd, ret, duration in tasks[start_from:]:
             if len(run_path) > path_width:
                 run_path = ".." + run_path[-(path_width - 2):]
             else:
@@ -111,6 +115,10 @@ def print_tasks(monitor=False):
                 cmd = cmd[:(cmd_width - 2)] + ".."
             line = "{0:3d} {1:<2s} {2} {3}".format(idno, state_short_str(state), run_path, cmd)
             print(LOG_STR[state].format(line))
+            if monitor:
+                rows = rows + 1
+                if rows >= screen_rows:
+                    break
     elif monitor:
         print("No tasks.")
 
