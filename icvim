@@ -3,7 +3,7 @@
 SCRIPTPATH="$(dirname "`readlink -f $0`")"
 source "$SCRIPTPATH/common.sh" || exit 1
 
-SCRIPT_VERSION=3
+SCRIPT_VERSION=4
 expect_common_version 3
 load_config
 check_config ICVIM_OPEN="gvim -f"
@@ -26,7 +26,12 @@ run_bash() {
     compflags=" "
     local bash_script="$1"
     local target="$3"
-    echo '#!/bin/bash' > "$target"
+    rm -f "$target"
+    shebang="$(head -n1 "$bash_script")"
+    shebang="${shebang::1}"
+    if [ "$shebang" != '#' ]; then
+        echo '#!/bin/bash' > "$target"
+    fi
     cat "$bash_script" >> "$target"
     chmod +x "$target"
 }
