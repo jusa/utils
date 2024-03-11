@@ -9,6 +9,7 @@ import sys
 import time
 import queue
 import traceback
+import pickle
 from datetime import timedelta
 from datetime import datetime
 from unicodedata import normalize
@@ -23,11 +24,15 @@ from gi.repository import GLib
 SERVICE_NAME = "org.sailfish.sdkrun"
 SERVICE_PATH = "/org/sailfish/sdkrun"
 
+VERSION             = 1
+STATE_PATH          = ".server-sdk"
+STATE_FILE          = "cache." + str(VERSION)
 BUILD_LOGS_ENABLED  = True
-BUILD_LOGS_PATH     = ".build_logs"
+BUILD_LOGS_PATH     = "build_logs"
+
 BUILD_ERROR_FILE    = ".sdk-build-error.log"
 
-TASK_HISTORY_LENGTH = 50
+TASK_HISTORY_LENGTH = 1000
 MIN_LINES_FOR_ERROR = 20
 ERROR_STR           = "\x1b[31m{}\x1b[39m"
 WARN_STR            = "\x1b[33m{}\x1b[39m"
@@ -115,6 +120,14 @@ class WorkerPrinter():
         self._running = False
         self._print("")
 
+class TaskData():
+    def __init__(self, pwd, argv):
+        self._pwd = str(pwd)
+        self._argv = [str(n) for n in argv]
+        self._state = Task.CREATED
+        self._start_time = 0
+        self._duration = 0
+        self._returncode = -1
 
 class Task(threading.Thread):
     global_id = 0
@@ -132,19 +145,14 @@ class Task(threading.Thread):
 
     def __init__(self, pwd, argv, state_callback=None, process_callback=None, background=False):
         threading.Thread.__init__(self)
-        self._pwd = str(pwd)
-        self._argv = [str(n) for n in argv]
+        self._data = TaskData(pwd, argv)
         Task.global_id += 1
         self._id = Task.global_id
-        self._state = Task.CREATED
         self._background = background
         self._process = None
         self._process_lock = threading.Lock()
         self._state_cb = state_callback
         self._process_cb = process_callback
-        self._returncode = -1
-        self._start_time = 0
-        self._duration = 0
         self._followers = []
         self._output = []
         self._log_file = None
@@ -164,50 +172,53 @@ class Task(threading.Thread):
     def id(self):
         return self._id
 
+    def data(self):
+        return self._data
+
     def pwd(self):
-        return self._pwd
+        return self._data._pwd
 
     def argv(self):
-        return self._argv
+        return self._data._argv
 
     def cmdline(self):
-        return ' '.join(self._argv)
+        return ' '.join(self._data._argv)
 
     def state_pretty_str(self):
         s = LOG_STATE_STR.format(self.id(), self.pwd(), self.cmdline())
-        if self._state > Task.STARTING:
+        if self._data._state > Task.STARTING:
             s = "{0} ({1:0>8})".format(s, str(timedelta(seconds=self.time())))
         return s
 
     def _set_state(self, state, lock=True):
         if lock:
             self.lock();
-        if self._state != state:
-            self._state = state
+        if self._data._state != state:
+            self._data._state = state
             if self._state_cb:
                 self._state_cb(self)
         if lock:
             self.unlock()
 
     def state(self):
-        return self._state
+        return self._data._state
 
     def background(self):
         return self._background
 
     def returncode(self):
-        return self._returncode
+        return self._data._returncode
 
     def time(self):
-        if self._state == Task.DONE:
-            return int(self._duration)
-        elif self._state == Task.CANCEL:
+        if self._data._state == Task.DONE:
+            return int(self._data._duration)
+        elif self._data._state == Task.CANCEL:
             return -1
         else:
-            return int(time.time() - self._start_time)
+            return int(time.time() - self._data._start_time)
 
     def _quit_follower(self, method_quit):
-        method_quit(self._returncode)
+        method_quit(self._data._returncode)
 
     def register_follower(self, name):
         IFACE = "org.sailfish.sdk.client"
@@ -216,7 +227,7 @@ class Task(threading.Thread):
         service = bus.get_object(name, PATH)
         method_write = service.get_dbus_method("Write", IFACE)
         method_quit = service.get_dbus_method("Quit", IFACE)
-        if self._state in (Task.CREATED, Task.STARTING, Task.RUNNING):
+        if self._data._state in (Task.CREATED, Task.STARTING, Task.RUNNING):
             self._followers.append((method_write, method_quit, name))
         else:
             GLib.idle_add(self._quit_follower, method_quit)
@@ -258,13 +269,13 @@ class Task(threading.Thread):
         return value
 
     def run(self):
-        if self._state != Task.CREATED:
+        if self._data._state != Task.CREATED:
             return
 
-        self._start_time = time.time()
+        self._data._start_time = time.time()
 
         if BUILD_LOGS_ENABLED:
-            log_path = Path(os.path.join(str(Path.home()), BUILD_LOGS_PATH))
+            log_path = Path(os.path.join(str(Path.home()), STATE_PATH, BUILD_LOGS_PATH))
             log_fn = os.path.join(str(log_path), "{0:s}-{1:s}.log".format(datetime.now().strftime("%Y.%m.%d-%H:%M:%S"), self.slugify()))
             if not log_path.exists():
                 log_path.mkdir()
@@ -275,7 +286,7 @@ class Task(threading.Thread):
         self.lock()
         self._set_state(Task.STARTING, lock=False)
         try:
-            self._process = subprocess.Popen(self._argv, cwd=self._pwd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, close_fds=True)
+            self._process = subprocess.Popen(self._data._argv, cwd=self._data._pwd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, close_fds=True)
         except OSError as e:
             print(e)
             self._process = None
@@ -295,15 +306,15 @@ class Task(threading.Thread):
             if not line:
                 self._process.wait()
                 self.lock()
-                self._returncode = self._process.returncode
+                self._data._returncode = self._process.returncode
                 self.unlock()
                 break
 
             self._process_line(line.decode('utf-8'))
 
-        self._duration = time.time() - self._start_time
+        self._data._duration = time.time() - self._data._start_time
 
-        if self._returncode == 0:
+        if self._data._returncode == 0:
             self._set_state(Task.DONE)
         else:
             self._set_state(Task.FAIL)
@@ -311,7 +322,7 @@ class Task(threading.Thread):
         # clean up
         self.lock()
         for method_write, method_quit, name in self._followers:
-            method_quit(self._returncode)
+            method_quit(self._data._returncode)
         while len(self._followers):
             self._followers.pop()
         if self._process.stdin:
@@ -328,7 +339,7 @@ class Task(threading.Thread):
         self.lock()
         if self._process:
             self._process.kill()
-        if self._state in (Task.CREATED, Task.STARTING, Task.RUNNING):
+        if self._data._state in (Task.CREATED, Task.STARTING, Task.RUNNING):
             self._set_state(Task.CANCEL, lock=False)
         self.unlock()
 
@@ -340,6 +351,16 @@ class TaskManager():
         self._printer = WorkerPrinter()
         self._history_length = TASK_HISTORY_LENGTH
         signal.signal(signal.SIGINT, self._sigint_handler)
+        state_file = Path(os.path.join(str(Path.home()), STATE_PATH, STATE_FILE))
+        if state_file.exists():
+            try:
+                task_data = pickle.load(open(state_file, "rb"))
+                for data in task_data:
+                    self._gen_task(data)
+            except Exception as e:
+                print("Failed to load state file:", e)
+                state_file.unlink()
+                self._tasks = []
 
     def tasks(self):
         ret = []
@@ -379,6 +400,15 @@ class TaskManager():
             self._printer.println(traceback.format_exc())
             return False
 
+
+    # Should be run only during startup of service when loading state from disk
+    def _gen_task(self, task_data):
+        task = Task(task_data._pwd, task_data._argv, self._task_state_changed, None, True)
+        task._data._state = task_data._state
+        task._data._start_time = task_data._start_time
+        task._data._duration = task_data._duration
+        task._data._returncode = task_data._returncode
+        self._append_task(task)
 
     def add_task(self, pwd, cmdline, background):
         self._tasks_lock.acquire()
@@ -476,6 +506,11 @@ class TaskManager():
     def quit(self):
         self.cancel_all()
         self._printer.done()
+        task_data = []
+        for task in self._tasks:
+            task_data.append(task.data())
+        state_file = Path(os.path.join(str(Path.home()), STATE_PATH, STATE_FILE))
+        pickle.dump(task_data, open(state_file, "wb"))
 
     # called from task thread
     def _task_process_line(self, task, line):
