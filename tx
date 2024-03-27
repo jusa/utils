@@ -280,7 +280,7 @@ def ftypes():
 
 def vprint(*args):
 	if verbose_print:
-		print(">> ", end='')
+		print("#- ", end='')
 		print(*args)
 
 def eprint(*args):
