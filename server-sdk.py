@@ -403,7 +403,7 @@ class TaskManager():
 
     # Should be run only during startup of service when loading state from disk
     def _gen_task(self, task_data):
-        task = Task(task_data._pwd, task_data._argv, self._task_state_changed, None, True)
+        task = Task(task_data._pwd, task_data._argv, self._task_state_changed, None, False)
         task._data._state = task_data._state
         task._data._start_time = task_data._start_time
         task._data._duration = task_data._duration
