@@ -29,7 +29,7 @@
 SCRIPTPATH="$(dirname "`readlink -f $0`")"
 source "$SCRIPTPATH/common.sh" || exit 1
 
-SCRIPT_VERSION="1.4.0"
+SCRIPT_VERSION="1.5.0"
 expect_common_version 3
 load_config
 check_config EDITOR=less FORCE_GREP=0 IGNORE_CASE=0 USE_AG=0
@@ -72,6 +72,7 @@ handle_options \
     "missing:           args_missing                      " \
     "-h,--help,         0,  print_usage                   " \
     "-g,--grep,         0,  FORCE_GREP                    " \
+    "-f,--files,        1,  FILE_MASK                     " \
     "-e,--editor,       1,  EDITOR                        " \
     "-i,--ignore-case,  0,  IGNORE_CASE                   " \
     ---                                                     \
@@ -125,6 +126,9 @@ if [ $use_git -eq 1 ]; then
 elif [ $USE_AG -eq 1 ]; then
     grepcommand="ag"
     grepcommandpost=""
+    if [ -n "$FILE_MASK" ]; then
+        grepcommand="$grepcommand -G $FILE_MASK"
+    fi
     grepdirectories="."
 else
     grepcommand="grep -r -n"
