@@ -231,12 +231,19 @@ def latest_task_id(idno):
                 idno = idn
     return idno
 
+def pager(text):
+    if sys.stdin.isatty():
+        args = PAGER_CLI
+    else:
+        args = PAGER_GUI
+    p = Popen(args, stdin=PIPE, close_fds=True)
+    p.communicate(input=text.encode())
+
 def log(idno):
     idno = latest_task_id(idno)
     found, text = sdk_method("Log")(idno)
     if found:
-        sys.stdout.write(text)
-        sys.stdout.flush()
+        pager(text)
     else:
         log_err("No task with id {}.".format(idno))
 
@@ -244,12 +251,7 @@ def lastlog():
     idno = latest_task_id(-1)
     found, text = sdk_method("Log")(idno)
     if found:
-        if sys.stdin.isatty():
-            args = PAGER_CLI
-        else:
-            args = PAGER_GUI
-        p = Popen(args, stdin=PIPE, close_fds=True)
-        ret = p.communicate(input=text.encode())
+        pager(text)
 
 def cancel(idno):
     idno = latest_task_id(idno)
