@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 
+import gzip
 import os
 import threading
 import subprocess
@@ -246,7 +247,7 @@ class Task(threading.Thread):
     def _process_line(self, line):
         self._output.append(line)
         if self._log_file:
-            self._log_file.write(line)
+            self._log_file.write(line.encode())
 
         if len(self._followers):
             for method_write, method_quit, name in self._followers:
@@ -276,12 +277,12 @@ class Task(threading.Thread):
 
         if BUILD_LOGS_ENABLED:
             log_path = Path(os.path.join(str(Path.home()), STATE_PATH, BUILD_LOGS_PATH))
-            log_fn = os.path.join(str(log_path), "{0:s}-{1:s}.log".format(datetime.now().strftime("%Y.%m.%d-%H:%M:%S"), self.slugify()))
+            log_fn = os.path.join(str(log_path), "{0:s}-{1:s}.log.gz".format(datetime.now().strftime("%Y.%m.%d-%H:%M:%S"), self.slugify()))
             if not log_path.exists():
                 log_path.mkdir()
-            self._log_file = open(log_fn, "w")
-            self._log_file.write("{0:s} $ {1:s}\n".format(self.pwd(), self.cmdline()))
-            self._log_file.write("================log================\n")
+            self._log_file = gzip.open(log_fn, "w")
+            self._log_file.write("{0:s} $ {1:s}\n".format(self.pwd(), self.cmdline()).encode())
+            self._log_file.write(b"================log================\n")
 
         self.lock()
         self._set_state(Task.STARTING, lock=False)
