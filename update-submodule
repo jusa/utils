@@ -1,6 +1,6 @@
 #!/bin/bash
 
-script_version=2023.02.15
+script_version=2024.10.23
 
 SCRIPTPATH="$(dirname "`readlink -f $0`")"
 source "$SCRIPTPATH/update-common.sh" || exit 1
@@ -139,7 +139,7 @@ handle_repository() {
         local replace=("%s" "$submodule_name" "%r" "$(basename "$repository")" "%t" "$submodule_target")
 
         current_branch="$(git branch | grep -e '^\*' | awk '{ print $2 }')"
-        update_branch=$(process_string "$update_branch_name" "${replace[@]}" " " "_")
+        update_branch=$(process_string "$update_branch_name" "${replace[@]}" " " "_" "/" "_")
         local check_update_branch="$update_branch"
         local _a=1
         while [ -n "$(git branch | grep "$check_update_branch\$")" ]; do
