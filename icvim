@@ -20,6 +20,7 @@ compiler_cmd+=( ["c"]="$ICVIM_COMPILE_C" )
 compiler_cmd+=( ["cpp"]="$ICVIM_COMPILE_CPP" )
 compiler_cmd+=( ["sh"]="run_bash" )
 compiler_cmd+=( ["py"]="run_python" )
+compiler_cmd+=( ["dart"]="run_dart" )
 
 run_bash() {
     # We don't support compflags
@@ -43,6 +44,16 @@ run_python() {
     local target="$3"
     echo '#!/usr/bin/env python3' > "$target"
     cat "$python_script" >> "$target"
+    chmod +x "$target"
+}
+
+run_dart() {
+    need_binaries dart
+    compflags=" "
+    local main="$1"
+    local target="$3"
+    dart run "$main"
+    echo -e "#!/bin/sh\nexit $?" > "$target"
     chmod +x "$target"
 }
 
