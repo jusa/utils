@@ -18,33 +18,20 @@ fi
 declare -A compiler_cmd
 compiler_cmd+=( ["c"]="$ICVIM_COMPILE_C" )
 compiler_cmd+=( ["cpp"]="$ICVIM_COMPILE_CPP" )
-compiler_cmd+=( ["sh"]="run_bash" )
-compiler_cmd+=( ["py"]="run_python" )
 compiler_cmd+=( ["dart"]="run_dart" )
-compiler_cmd+=( ["lua"]="run_lua" )
+compiler_cmd+=( ["sh"]="run_simple bash" )
+compiler_cmd+=( ["py"]="run_simple python3" )
+compiler_cmd+=( ["lua"]="run_simple lua" )
 
-run_bash() {
-    # We don't support compflags
+run_simple() {
+    local exe="$1"
+    shift
+    need_binaries $exe
     compflags=" "
-    local bash_script="$1"
+    local main="$1"
     local target="$3"
-    rm -f "$target"
-    shebang="$(head -n1 "$bash_script")"
-    shebang="${shebang::1}"
-    if [ "$shebang" != '#' ]; then
-        echo '#!/bin/bash' > "$target"
-    fi
-    cat "$bash_script" >> "$target"
-    chmod +x "$target"
-}
-
-run_python() {
-    # We don't support compflags
-    compflags=" "
-    local python_script="$1"
-    local target="$3"
-    echo '#!/usr/bin/env python3' > "$target"
-    cat "$python_script" >> "$target"
+    echo "#!/usr/bin/env $exe" > "$target"
+    cat "$main" >> "$target"
     chmod +x "$target"
 }
 
@@ -55,16 +42,6 @@ run_dart() {
     local target="$3"
     dart run "$main"
     echo -e "#!/bin/sh\nexit $?" > "$target"
-    chmod +x "$target"
-}
-
-run_lua() {
-    need_binaries lua
-    compflags=" "
-    local main="$1"
-    local target="$3"
-    echo -e "#!/usr/bin/env lua" > "$target"
-    cat "$main" >> "$target"
     chmod +x "$target"
 }
 
