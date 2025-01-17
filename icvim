@@ -21,6 +21,7 @@ compiler_cmd+=( ["cpp"]="$ICVIM_COMPILE_CPP" )
 compiler_cmd+=( ["sh"]="run_bash" )
 compiler_cmd+=( ["py"]="run_python" )
 compiler_cmd+=( ["dart"]="run_dart" )
+compiler_cmd+=( ["lua"]="run_lua" )
 
 run_bash() {
     # We don't support compflags
@@ -54,6 +55,16 @@ run_dart() {
     local target="$3"
     dart run "$main"
     echo -e "#!/bin/sh\nexit $?" > "$target"
+    chmod +x "$target"
+}
+
+run_lua() {
+    need_binaries lua
+    compflags=" "
+    local main="$1"
+    local target="$3"
+    echo -e "#!/usr/bin/env lua" > "$target"
+    cat "$main" >> "$target"
     chmod +x "$target"
 }
 
