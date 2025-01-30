@@ -4,7 +4,7 @@ SCRIPTPATH="$(dirname "`readlink -f $0`")"
 source "$SCRIPTPATH/common.sh" || exit 1
 
 expect_common_version 4
-need_binaries scp ssh rpm inotifywait
+need_binaries scp ssh rpm
 load_config
 check_config \
     INSTALL_HOST="192.168.2.15" \
@@ -13,7 +13,7 @@ check_config \
     WATCH_FOR_FILE="false" \
     WATCH_PATTERN="rpm/*.spec.*"
 
-SCRIPT_VERSION="7"
+SCRIPT_VERSION="8"
 current_dir="$PWD"
 rpms_dir=
 to_copy=
@@ -74,6 +74,7 @@ fi
 remote="$INSTALL_USER@$INSTALL_HOST"
 
 if string_is_true $WATCH_FOR_FILE; then
+    need_binaries inotifywait
     f=
     c=0
 
