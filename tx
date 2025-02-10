@@ -73,7 +73,7 @@ def ftypes():
 		        [ 'tar -v -z --list -f', Archive ],
 		        '-v',
 		        '',
-		        [r'\.tar\.gz$', '\.tgz$']),
+		        [r'\.tar\.gz$', r'\.tgz$']),
 	
 		Handler('tar.bz2',
 		        ['tar', 'bzip2'],
@@ -467,7 +467,7 @@ def print_autocomplete():
 				break
 		if available:
 			for i in handler.ext_r:
-				handled.append(i.replace('\.', '.').replace('$', '')[1:])
+				handled.append(i.replace(r'\.', '.').replace(r'$', '')[1:])
 	print('|'.join(handled))
 
 def main():
