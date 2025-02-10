@@ -7,7 +7,7 @@ tx - unpack multiple compressed file types
 
 Public domain.
 
-Juho Hämäläinen 2008-2024 jusa@hilvi.org
+Enni Hämäläinen 2008-2025 jusa@hilvi.org
 
 """
 
@@ -441,7 +441,8 @@ def list_contents(filename):
 		eprint("Listing contents is not supported with %s." % handler.name)
 		return err
 	if handler:
-		cmd = build_cmd(handler, handler.list_contents, False, filename)
+		cmd = build_cmd(handler, handler.list_contents, filename)
+		vprint(cmd)
 		err = os.system(cmd)
 	return err
 
