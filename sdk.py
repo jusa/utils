@@ -64,7 +64,7 @@ def state_short_str(state):
         return "d"
     elif state == STATE_FAIL:
         return "f"
-    return "UNKNOWN"
+    return "?"
 
 def log_err(msg, exit=True, code=1):
     sys.stderr.write("{}\n".format(msg))
@@ -113,7 +113,7 @@ def print_tasks(monitor=False):
                 run_path = run_path + (path_width - len(run_path)) * " "
             if len(cmd) > cmd_width:
                 cmd = cmd[:(cmd_width - 2)] + ".."
-            line = "{0:3d} {1:<2s} {2} {3}".format(idno, state_short_str(state), run_path, cmd)
+            line = "{0:4d} {1:<1s} {2} {3}".format(idno, state_short_str(state), run_path, cmd)
             print(LOG_STR[state].format(line))
             if monitor:
                 rows = rows + 1
