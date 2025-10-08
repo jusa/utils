@@ -54,7 +54,7 @@ class WorkerPrinter():
         self._match.append((re.compile(r'^.*:\d+: error:'),                     ERROR_STR,  True    ))
         self._match.append((re.compile(r'^.*: error:'),                         ERROR_STR,  True    ))
         self._match.append((re.compile(r'^FAILED:'),                            ERROR_STR,  True    ))
-        self._match.append((re.compile(r'^.*:\d+: undefined reference to'),     ERROR_STR,  True    ))
+        self._match.append((re.compile(r'^.*:\d+:.* undefined reference to'),   ERROR_STR,  True    ))
         self._match.append((re.compile(r'^.*:\d+:\d+: warning:'),               WARN_STR,   False   ))
 
         self._queue = queue.Queue()
