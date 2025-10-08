@@ -17,7 +17,7 @@ if [ ! -d /parentroot ]; then
     fi
     echo "Starting server-sdk.py inside mer sdk..."
     echo "DBUS_SESSION_BUS_ADDRESS=$DBUS_SESSION_BUS_ADDRESS" > "$session_bus_file"
-    exec $chroot_cmd server-sdk
+    exec $chroot_cmd server-sdk "$@"
     exit 0
 else
     if [ ! -f "/parentroot$session_bus_file" ]; then
@@ -31,8 +31,8 @@ else
         sudo ln -s /parentroot/run/user/$UID /run/user/$UID
     fi
     if [ -f "$wrapper_path/server-sdk.py" ]; then
-        exec "$wrapper_path/server-sdk.py"
+        exec $wrapper_path/server-sdk.py "$@"
     else
-        exec server-sdk.py
+        exec server-sdk.py "$@"
     fi
 fi

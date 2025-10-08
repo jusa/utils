@@ -22,6 +22,13 @@ import dbus.mainloop.glib
 
 from gi.repository import GLib
 
+# Only import optional http service related stuff is needed.
+if len(sys.argv) > 1:
+    import threading
+    import socketserver
+    import json
+    import http.server
+
 SERVICE_NAME = "org.sailfish.sdkrun"
 SERVICE_PATH = "/org/sailfish/sdkrun"
 
@@ -359,10 +366,11 @@ class Task(threading.Thread):
         self.unlock()
 
 class TaskManager():
-    def __init__(self, service):
+    def __init__(self, service, status):
         self._tasks = []
         self._tasks_lock = threading.Lock()
         self._service = service
+        self._status = status
         self._printer = WorkerPrinter()
         self._history_length = TASK_HISTORY_LENGTH
         signal.signal(signal.SIGINT, self._sigint_handler)
@@ -556,6 +564,7 @@ class TaskManager():
         if task.state() == Task.STARTING:
             self._printer.reset(task)
             self._printer.println(task.state_pretty_str())
+            if self._status: self._status.running()
 
         elif task.state() == Task.CANCEL:
             # Cancel state is reached with _tasks_lock acquired
@@ -565,11 +574,13 @@ class TaskManager():
             self._tasks_lock.acquire()
             self._print_and_remove(task, "{0}  {1}".format(task.state_pretty_str(), LOG_SUCCESS_STR), last=True);
             self._tasks_lock.release()
+            if self._status: self._status.done()
 
         elif task.state() == Task.FAIL:
             self._tasks_lock.acquire()
             self._print_and_remove(task, "{0}  {1} ({2})".format(task.state_pretty_str(), LOG_FAIL_STR, task.returncode()), last=True);
             self._tasks_lock.release()
+            if self._status: self._status.fail()
 
         self._service.TaskStateChanged(task.state(), task.id(), task.pwd(), task.cmdline(), task.time())
 
@@ -580,8 +591,12 @@ class TaskManager():
 
 
 class Service(dbus.service.Object):
-    def __init__(self):
-        self._manager = TaskManager(self)
+    def __init__(self, status_port=0):
+        if status_port:
+            self._status = StatusManager(status_port)
+        else:
+            self._status = None
+        self._manager = TaskManager(self, self._status)
 
     def run(self):
         dbus.mainloop.glib.DBusGMainLoop(set_as_default=True)
@@ -595,6 +610,7 @@ class Service(dbus.service.Object):
         print("Service running...")
         self._loop.run()
         self._manager.quit()
+        if self._status: self._status.quit()
         print("Service stopped")
 
     @dbus.service.method(SERVICE_NAME, in_signature='i', out_signature='iissii')
@@ -658,5 +674,63 @@ class Service(dbus.service.Object):
     def TaskStateChanged(self, new_state, task_id, task_pwd, task_cmd, duration):
         pass
 
+class MyHandler(http.server.BaseHTTPRequestHandler):
+    def __init__(self, *args, queue=None, **kwargs):
+        self._queue = queue
+        super().__init__(*args, **kwargs)
+
+    def do_GET(self):
+        # Set response headers
+        self.send_response(200)
+        self.send_header('Content-type', 'application/json')
+        self.send_header('Access-Control-Allow-Origin', '*')
+        self.end_headers()
+        data = self._queue.get()
+        self.wfile.write(data)
+
+    def log_message(self, format, *args):
+        # Avoid logging
+        pass
+
+
+class StatusManager:
+    def __init__(self, port):
+        HOST="localhost"
+        self._queue = queue.Queue()
+        def handler_factory(*args, **kwargs):
+            return MyHandler(*args, queue=self._queue, **kwargs)
+        def run_server(server):
+            with server:
+                server.serve_forever()
+        self._server = socketserver.TCPServer((HOST, port), handler_factory)
+        self._server_thread = threading.Thread(target=run_server, args=(self._server,))
+        self._server_thread.daemon = True
+        self._server_thread.start()
+        print(f"Status server started on {HOST}:{port}")
+
+    def running(self):
+        self._post("RUNNING", "#ccc900")
+
+    def done(self):
+        self._post("DONE", "#14cc00")
+
+    def fail(self):
+        self._post("FAIL", "#cc0000")
+
+    def _post(self, txt, color):
+        data = { "messages": [ { "label": { "text": txt, "color": color } } ] }
+        # Convert to JSON and send
+        json_data = json.dumps(data, indent=2)
+        self._queue.put(json_data.encode('utf-8'))
+
+    def quit(self):
+        self._post("quitting", "#14cc00")
+        self._server.shutdown()
+        self._server.server_close()
+        self._server_thread.join()
+
 if __name__ == "__main__":
-    Service().run()
+    port = 0
+    if len(sys.argv) > 1:
+        port = int(sys.argv[1])
+    Service(port).run()
