@@ -56,6 +56,9 @@ class WorkerPrinter():
         self._match.append((re.compile(r'^FAILED:'),                            ERROR_STR,  True    ))
         self._match.append((re.compile(r'^.*:\d+:.* undefined reference to'),   ERROR_STR,  True    ))
         self._match.append((re.compile(r'^.*:\d+:\d+: warning:'),               WARN_STR,   False   ))
+        self._dir_changed = re.compile(r'^make.*: Entering directory')
+        self._taskdir = None
+        self._prefixdir = ""
 
         self._queue = queue.Queue()
         self._running = True
@@ -88,18 +91,29 @@ class WorkerPrinter():
     def println(self, line):
         self._print("{}\n".format(line))
 
-    def reset(self):
+    def reset(self, task=None):
         self._lines = 0
         self._errors = []
+        self._prefixdir = ""
+        if task:
+            self._taskdir = task.pwd()
 
     def process(self, ts, line):
         self._lines += 1
-        for regex, pr, error in self._match:
-            if regex.match(line):
-                if error:
-                    self._errors.append((self._lines, line))
-                line = pr.format(line)
-                break
+        if self._taskdir and self._dir_changed.match(line):
+            full_dir = line.split("Entering directory ")
+            if len(full_dir) == 2:
+                full_dir = full_dir[1].split("'")
+                if len(full_dir) == 3:
+                    self._prefixdir = full_dir[1].replace(self._taskdir + "/", "")
+                    self._prefixdir = self._prefixdir + "/"
+        else:
+            for regex, pr, error in self._match:
+                if regex.match(line):
+                    if error:
+                        self._errors.append((self._lines, self._prefixdir + line))
+                    line = pr.format(line)
+                    break
         if ts >= 0:
             line = "[{0:4d}s] {1}".format(ts, line)
         self._print(line)
@@ -540,7 +554,7 @@ class TaskManager():
             self._printer.debug("({0}) task \"{1}\" state {2}".format(task.id(), task.cmdline(), task.state()))
 
         if task.state() == Task.STARTING:
-            self._printer.reset()
+            self._printer.reset(task)
             self._printer.println(task.state_pretty_str())
 
         elif task.state() == Task.CANCEL:
