@@ -13,7 +13,7 @@ check_config \
     WATCH_FOR_FILE="false" \
     WATCH_PATTERN="rpm/*.spec.*"
 
-SCRIPT_VERSION="8"
+SCRIPT_VERSION="9"
 current_dir="$PWD"
 rpms_dir=
 to_copy=
@@ -188,7 +188,7 @@ if [ -z "$wildcards" ]; then
     for package in $installed; do
         log_dbg "to be installed: $package"
         to_install="$to_install $package"
-        to_copy="$to_copy $base_path/$package"
+        to_copy="$to_copy -C $base_path $package"
     done
     echo -e -n "                                \r"
 fi
@@ -198,10 +198,8 @@ if [ -z "$to_copy" ]; then
     exit 1
 fi
 
-echo -e -n "\rcopying files to device...\r"
-# first copy...
-scp $ssh_opt $to_copy $remote:/tmp
-
+# copy, install and delete in one fell swoop...
 echo -e -n "\rinstalling...             \r"
-# then install and delete...
-ssh $ssh_opt $remote "cd /tmp && rpm -v -U $install_opts --force $to_install ; rm -f $to_install"
+tar -c -z -f - $to_copy | ssh $ssh_opt $remote "tar -x -z -f - -C /tmp && cd /tmp && rpm -v -U $install_opts --force $to_install ; rm -f $to_install"
+
+exit $?
