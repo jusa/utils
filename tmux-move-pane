@@ -1,0 +1,48 @@
+#!/bin/bash
+
+# Requires fzf for "ui". I have no idea if this needs to be this
+# convoluted but I got this working so ¯\_(ツ)_/¯
+#
+# Binding in .tmux.conf
+# bind b run-shell "$HOME/tmux-move-pane"
+
+abort_script() {
+    tmux select-pane -M
+    tmux send-keys exit C-m
+    exit 0
+}
+
+if [ "$1" != "2" ]; then
+    tmux select-pane -m
+    tmux split-pane
+    tmux send-keys "$0 2" C-m
+else
+    ILLEGAL=$(tmux list-windows | cut -d' ' -f1,2 | awk '/\*M?$/' | cut -d':' -f1)
+    NUM=$(tmux list-windows | cut -d' ' -f1,2 | awk '!/\*M?$/' | fzf --layout=reverse \
+                                                                    --bind '1:execute(echo 1)+cancel' \
+                                                                    --bind '2:execute(echo 2)+cancel' \
+                                                                    --bind '3:execute(echo 3)+cancel' \
+                                                                    --bind '4:execute(echo 4)+cancel' \
+                                                                    --bind '5:execute(echo 5)+cancel' \
+                                                                    --bind '6:execute(echo 6)+cancel' \
+                                                                    --bind '7:execute(echo 7)+cancel' \
+                                                                    --bind '8:execute(echo 8)+cancel' \
+                                                                    --bind '9:execute(echo 9)+cancel' \
+                                                                    --bind '0:execute(echo 10)+cancel' \
+                                                                    --bind 'q:execute(echo q)+cancel' \
+                                                                    --bind 'j:down' \
+                                                                    --bind 'k:up' \
+                                                                    --no-sort | cut -d':' -f1)
+    if [ $? -ne 0 ] || [ "$NUM" == "q" ] || [ -z "$NUM" ] || [ "$NUM" == "$ILLEGAL" ]; then
+        abort_script
+    fi
+
+    if [ -z "$(tmux list-windows | awk "/^$NUM/")" ]; then
+        abort_script
+    fi
+
+    tmux send-keys exit C-m
+    tmux selectw -t $NUM
+    tmux join-pane
+fi
+exit 0
