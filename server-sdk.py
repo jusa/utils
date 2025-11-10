@@ -15,6 +15,7 @@ from datetime import timedelta
 from datetime import datetime
 from unicodedata import normalize
 from pathlib import Path
+import http.server
 
 import dbus
 import dbus.service
@@ -27,7 +28,6 @@ if len(sys.argv) > 1:
     import threading
     import socketserver
     import json
-    import http.server
 
 SERVICE_NAME = "org.sailfish.sdkrun"
 SERVICE_PATH = "/org/sailfish/sdkrun"
@@ -702,20 +702,29 @@ class StatusManager:
         def run_server(server):
             with server:
                 server.serve_forever()
-        self._server = socketserver.TCPServer((HOST, port), handler_factory)
-        self._server_thread = threading.Thread(target=run_server, args=(self._server,))
-        self._server_thread.daemon = True
-        self._server_thread.start()
-        print(f"Status server started on {HOST}:{port}")
+        try:
+            self._server = socketserver.TCPServer((HOST, port), handler_factory)
+        except Exception as e:
+            print("Failed to start server: ", e)
+            self._server = None
+
+        if self._server:
+            self._server_thread = threading.Thread(target=run_server, args=(self._server,))
+            self._server_thread.daemon = True
+            self._server_thread.start()
+            print(f"Status server started on {HOST}:{port}")
 
     def running(self):
-        self._post("RUNNING", "#ccc900")
+        if self._server:
+            self._post("RUNNING", "#ccc900")
 
     def done(self):
-        self._post("DONE", "#14cc00")
+        if self._server:
+            self._post("DONE", "#14cc00")
 
     def fail(self):
-        self._post("FAIL", "#cc0000")
+        if self._server:
+            self._post("FAIL", "#cc0000")
 
     def _post(self, txt, color):
         data = { "messages": [ { "label": { "text": txt, "color": color } } ] }
@@ -724,6 +733,8 @@ class StatusManager:
         self._queue.put(json_data.encode('utf-8'))
 
     def quit(self):
+        if not self._server:
+            return
         self._post("quitting", "#14cc00")
         self._server.shutdown()
         self._server.server_close()
