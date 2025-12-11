@@ -200,6 +200,6 @@ fi
 
 # copy, install and delete in one fell swoop...
 echo -e -n "\rinstalling...             \r"
-tar -c -z -f - $to_copy | ssh $ssh_opt $remote "tar -x -z -f - -C /tmp && cd /tmp && rpm -v -U $install_opts --force $to_install ; rm -f $to_install"
+tar -c -h -z -f - $to_copy | ssh $ssh_opt $remote "tar -x -z -f - -C /tmp && cd /tmp && rpm -v -U $install_opts --force $to_install; rm -f $to_install"
 
 exit $?
