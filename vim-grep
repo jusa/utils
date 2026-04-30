@@ -29,13 +29,14 @@
 SCRIPTPATH="$(dirname "`readlink -f $0`")"
 source "$SCRIPTPATH/common.sh" || exit 1
 
-SCRIPT_VERSION="1.5.0"
-expect_common_version 3
+SCRIPT_VERSION="1.6.0"
+expect_common_version 5
 load_config
-check_config EDITOR=less FORCE_GREP=0 IGNORE_CASE=0 USE_AG=0
-if [ $USE_AG -eq 1 ]; then
-    need_binaries ag
-else
+check_config EDITOR=less FORCE_GREP=0 IGNORE_CASE=0 USE_AG=1
+if [ $FORCE_GREP -eq 0 ] && [ $USE_AG -eq 1 ]; then
+    need_binaries ag=USE_AG
+fi
+if [ $USE_AG -eq 0 ]; then
     need_binaries git grep
 fi
 
