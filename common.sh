@@ -15,7 +15,7 @@
 #
 
 # Increase this when functionality changes or new helper functions are added
-COMMON_VERSION=4
+COMMON_VERSION=5
 
 COMMON_CONFIG_LOCATION="$HOME/.config/$(basename $0).config"
 
@@ -29,6 +29,10 @@ fi
 # Args: space separated list of binaries that
 # need to be found in $PATH
 # Exits with 1 if binary not found.
+# When conditionally searching for binaries in $PATH use
+# syntax binary_name=SUCCESS_VARIABLE
+# Then $SUCCESS_VARIABLE is set to 1 or 0, if the binary was
+# found or not, respectively.
 need_binaries() {
     local missing=0
     which 2>/dev/null
@@ -37,10 +41,23 @@ need_binaries() {
         exit 10
     fi
     while [ $# -gt 0 ]; do
-        which $1 1>/dev/null 2>/dev/null
+        local BIN="$1"
+        local SET_FOUND=
+        local FOUND=1
+        if [[ "$BIN" == *"="* ]]; then
+            SET_FOUND="$(echo "$BIN" | cut -d= -f2)"
+            BIN="$(echo "$BIN" | cut -d= -f1)"
+        fi
+        which "$BIN" 1>/dev/null 2>/dev/null
         if [ $? != 0 ]; then
-            echo "$(basename $0): Script dependency $1 not found in \$PATH."
-            missing=1
+            if [ -z "$SET_FOUND" ]; then
+                echo "$(basename $0): Script dependency $1 not found in \$PATH."
+                missing=1
+            fi
+            FOUND=0
+        fi
+        if [ -n "$SET_FOUND" ]; then
+            printf -v "$SET_FOUND" %s "$FOUND"
         fi
         shift
     done
@@ -62,17 +79,16 @@ check_config() {
         local default=""
         local var="$1"
         local var_tmp=
+        local default_set=0
 
         if [[ "$var" == *"="* ]]; then
-            var_tmp="$(echo "$var" | cut -d= -f1)"
-            var_tmp=${#var_tmp}
-            ((var_tmp+=2))
-            default="$(echo "$var" | cut -b${var_tmp}-)"
+            default="$(echo "$var" | cut -d= -f2)"
             var="$(echo "$var" | cut -d= -f1)"
+            default_set=1
         fi
 
         if [ -z "${!var}" ]; then
-            if [ -z "$default" ]; then
+            if [ $default_set -eq 0 ]; then
                 echo "$(basename $0): Configuration variable $var not defined, abort."
                 exit 2
             else
