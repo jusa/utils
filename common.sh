@@ -82,7 +82,7 @@ check_config() {
         local default_set=0
 
         if [[ "$var" == *"="* ]]; then
-            default="$(echo "$var" | cut -d= -f2)"
+            default="$(echo "$var" | cut -d= -f2-)"
             var="$(echo "$var" | cut -d= -f1)"
             default_set=1
         fi
