@@ -274,6 +274,15 @@ def ftypes():
 		        None,
 		        None,
 		        [r'\.apk$']),
+		Handler('zst',
+		        ['zstd'],
+		        'Zstd archive.',
+		        [ 'zstd', Verbose, '-k -o', Archive, FileList ],
+		        [ 'zstd', Verbose, '-d -k', Archive ],
+		        [ 'zstd', Verbose, '-l', Archive ],
+		        '-v',
+		        '-q',
+		        [r'\.zst$']),
 	]
 
 	return ftypes_list
