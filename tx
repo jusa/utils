@@ -120,7 +120,7 @@ def ftypes():
 		        'File compressed with gzip.',
 		        [ 'gzip', Verbose, '-c >', Archive, '<', FileList ],
 		        [ 'gzip', Verbose, '-d -k', Archive ],
-		        None,
+		        [ 'gzip', Verbose, '-l', Archive ],
 		        '-v',
 		        '',
 		        [r'\.gz$']),
